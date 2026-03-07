@@ -46,6 +46,8 @@ export default function (pi: ExtensionAPI) {
 
 			await ctx.waitForIdle();
 
+			// Use --session with the current session file path to preserve the exact session
+			// This works for both new sessions (empty) and resumed sessions (with history)
 			sessionFileForRemote = ctx.sessionManager.getSessionFile();
 			pendingRemote = true;
 
@@ -60,7 +62,7 @@ export default function (pi: ExtensionAPI) {
 
 		const bin = resolvePiRemoteBin();
 		const extensionPath = join(__dirname, "index.ts");
-		const piArgs = ["-e", extensionPath, ...(sessionFileForRemote ? ["--continue"] : [])];
+		const piArgs = ["-e", extensionPath, ...(sessionFileForRemote ? ["--session", sessionFileForRemote] : [])];
 		const isJs = bin.endsWith(".js");
 		const command = isJs ? process.execPath : bin;
 		const args = isJs ? [bin, "--", ...piArgs] : ["--", ...piArgs];
