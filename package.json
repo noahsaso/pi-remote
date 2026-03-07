@@ -1,0 +1,66 @@
+{
+	"name": "@ruanqisevik/pi-remote",
+	"version": "0.1.0",
+	"description": "Remote terminal access for pi via WebSocket and browser",
+	"type": "module",
+	"bin": {
+		"pi-remote": "dist/cli.js"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"extension",
+		"web-dist",
+		"CHANGELOG.md"
+	],
+	"pi": {
+		"extensions": [
+			"./extension/index.ts"
+		]
+	},
+	"scripts": {
+		"clean": "shx rm -rf dist",
+		"build:ts": "tsc -p tsconfig.build.json",
+		"build:web": "cd web && npm run build",
+		"build": "npm run build:web && npm run build:ts && shx chmod +x dist/cli.js",
+		"dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+		"prepublishOnly": "npm run clean && npm run build"
+	},
+	"dependencies": {
+		"@types/qrcode": "^1.5.6",
+		"node-pty": "^1.1.0",
+		"qrcode": "^1.5.4",
+		"qrcode-terminal": "^0.12.0",
+		"ws": "^8.18.0"
+	},
+	"devDependencies": {
+		"@mariozechner/pi-coding-agent": "latest",
+		"@types/node": "^24.3.0",
+		"@types/ws": "^8.5.13",
+		"shx": "^0.4.0",
+		"typescript": "^5.7.3"
+	},
+	"keywords": [
+		"pi",
+		"remote",
+		"terminal",
+		"pty",
+		"websocket"
+	],
+	"author": "Q.Roy <ruanqisevik@gmail.com>",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ruanqisevik/pi-mono-extensions.git"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	}
+}
