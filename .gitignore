@@ -4,6 +4,7 @@ dist/
 .DS_Store
 *.tsbuildinfo
 packages/*/dist/
+packages/*/web-dist/
 
 # Environment
 .env
