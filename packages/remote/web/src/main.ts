@@ -130,6 +130,68 @@ style.textContent = `
   #overlay-buttons button:hover { background: #2e2e2e; }
   #overlay-buttons button.primary { border-color: #555; color: #fff; background: #2a2a2a; }
 
+  /* ── URL rows in remote overlay ──────────────────────────────────────────── */
+  .url-row {
+    display: flex;
+    align-items: start;
+    gap: 12px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+  }
+  .url-row:hover { background: #222; }
+  .url-row .url-text { flex: 1; min-width: 0; }
+  .url-row .label { font-size: 11px; font-weight: 600; }
+  .url-row .value { font-size: 11px; word-break: break-all; color: #aaa; }
+  .url-row .copy-btn {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    align-self: center;
+    color: #555;
+    transition: color 0.15s;
+  }
+  .url-row:hover .copy-btn { color: #aaa; }
+  .url-row.copied .copy-btn { color: #4ade80; }
+  .label-tailscale { color: #c084fc; }
+  .label-lan { color: #22d3ee; }
+  .label-token { color: #facc15; }
+
+  /* ── Session ended overlay ───────────────────────────────────────────────── */
+  #ended-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 300;
+  }
+  #ended-overlay.hidden { display: none; }
+  #ended-card {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 24px 28px;
+    max-width: 300px;
+    width: 90%;
+    text-align: center;
+  }
+  #ended-card h2 { margin-bottom: 8px; font-size: 16px; color: #e0e0e0; }
+  #ended-card p { font-size: 12px; color: #888; margin-bottom: 16px; }
+  #ended-card button {
+    background: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 5px;
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 20px;
+    cursor: pointer;
+  }
+  #ended-card button:hover { background: #333; }
+
   /* ── Token auth overlay ──────────────────────────────────────────────────── */
   #auth-overlay {
     position: fixed;
@@ -247,9 +309,26 @@ authOverlay.innerHTML = `
 `;
 document.body.appendChild(authOverlay);
 
+// Session ended overlay
+const endedOverlay = document.createElement("div");
+endedOverlay.id = "ended-overlay";
+endedOverlay.classList.add("hidden");
+endedOverlay.innerHTML = `
+  <div id="ended-card">
+    <h2>Session ended</h2>
+    <p>The remote pi session has exited. You can close this tab.</p>
+  </div>
+`;
+document.body.appendChild(endedOverlay);
+
 // ─── Terminal ─────────────────────────────────────────────────────────────────
 
 const tv = new TerminalView(termWrap);
+
+// Wire session exit handler
+tv.onExit(() => {
+	endedOverlay.classList.remove("hidden");
+});
 
 // Wire auth error handler
 let authAttempted = false;
@@ -272,6 +351,8 @@ function submitToken(): void {
 	if (!token) return;
 	authOverlay.classList.add("hidden");
 	tv.setToken(token);
+	// Reload remote URL info now that we have a valid token
+	loadRemoteUrl();
 }
 
 document.getElementById("auth-submit")!.addEventListener("click", submitToken);
@@ -350,11 +431,31 @@ async function loadRemoteUrl(): Promise<void> {
 		const qrUrl = tsUrl ?? lanUrl;
 
 		const urlEl = document.getElementById("remote-url")!;
-		if (tsUrl) {
-			urlEl.innerHTML = `<strong style="color:#c084fc">Tailscale:</strong> ${tsUrl}<br><span style="color:#666">LAN:</span> ${lanUrl}`;
-		} else {
-			urlEl.textContent = lanUrl;
-		}
+		urlEl.innerHTML = "";
+
+		const copySvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+		const checkSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+		const makeRow = (labelClass: string, label: string, value: string): void => {
+			const row = document.createElement("div");
+			row.className = "url-row";
+			row.innerHTML = `<div class="url-text"><span class="label ${labelClass}">${label}</span> <span class="value">${value}</span></div><div class="copy-btn">${copySvg}</div>`;
+			row.addEventListener("click", () => {
+				navigator.clipboard.writeText(value).catch(() => {});
+				row.classList.add("copied");
+				const btn = row.querySelector(".copy-btn")!;
+				btn.innerHTML = checkSvg;
+				setTimeout(() => { row.classList.remove("copied"); btn.innerHTML = copySvg; }, 1500);
+			});
+			urlEl.appendChild(row);
+		};
+
+		if (tsUrl) makeRow("label-tailscale", "Tailscale:", tsUrl);
+		makeRow("label-lan", "LAN:", lanUrl);
+
+		// Extract and show token
+		const tokenMatch = (tsUrl ?? lanUrl).match(/[?&]token=([^&]+)/);
+		if (tokenMatch) makeRow("label-token", "Token:", tokenMatch[1]);
 
 		const canvas = document.getElementById("qr-canvas") as HTMLCanvasElement;
 		await QRCode.toCanvas(canvas, qrUrl, {

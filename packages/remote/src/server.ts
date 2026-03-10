@@ -69,6 +69,31 @@ function getWebDir(): string {
 	return join(__dirname, "..", "web-dist");
 }
 
+function styledErrorPage(title: string, message: string): string {
+	return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>pi remote</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#0a0a0a;color:#d4d4d4;font-family:system-ui,sans-serif}
+body{display:flex;align-items:center;justify-content:center}
+.card{background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:24px 28px;max-width:300px;width:90%;text-align:center}
+h2{margin-bottom:8px;font-size:16px;color:#e0e0e0}
+p{font-size:12px;color:#888}
+</style>
+</head>
+<body>
+<div class="card">
+<h2>${title}</h2>
+<p>${message}</p>
+</div>
+</body>
+</html>`;
+}
+
 async function handleRequest(
 	req: import("node:http").IncomingMessage,
 	res: import("node:http").ServerResponse,
@@ -97,8 +122,8 @@ async function handleRequest(
 	if (!isStaticAsset && !isSpaPage) {
 		const urlToken = parsedUrl.searchParams.get("token");
 		if (urlToken !== ACCESS_TOKEN) {
-			res.writeHead(403, { "Content-Type": "application/json" });
-			res.end(JSON.stringify({ error: "Forbidden: invalid token" }));
+			res.writeHead(403, { "Content-Type": "text/html; charset=utf-8" });
+			res.end(styledErrorPage("Access denied", "Invalid or missing access token."));
 			return;
 		}
 	}
@@ -134,8 +159,8 @@ async function handleRequest(
 		}
 	}
 
-	res.writeHead(404);
-	res.end("Not Found");
+	res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+	res.end(styledErrorPage("No session found", "This remote session does not exist or has ended."));
 }
 
 export function startServer(): Promise<Server> {

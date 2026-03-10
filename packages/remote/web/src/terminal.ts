@@ -108,6 +108,12 @@ export class TerminalView {
 	// -------------------------------------------------------------------------
 
 	private onAuthRequired: (() => void) | null = null;
+	private onSessionExit: ((code: number | null) => void) | null = null;
+
+	/** Register a callback for when the session exits */
+	onExit(cb: (code: number | null) => void): void {
+		this.onSessionExit = cb;
+	}
 
 	/** Register a callback for when authentication fails */
 	onAuthError(cb: () => void): void {
@@ -143,10 +149,12 @@ export class TerminalView {
 					this.flushWrite();
 					const code = msg.exitCode ?? "?";
 					this.terminal.write(`\r\n\x1b[33mProcess exited (code ${code})\x1b[0m\r\n`);
+					this.onSessionExit?.(msg.exitCode);
 				} else if (msg.type === "state") {
 					if (!msg.running && msg.exitCode !== null) {
 						this.flushWrite();
 						this.terminal.write(`\x1b[33mProcess exited (code ${msg.exitCode})\x1b[0m\r\n`);
+						this.onSessionExit?.(msg.exitCode);
 					}
 				}
 			} catch {

@@ -196,11 +196,13 @@ export async function startRemote(options: RemoteOptions = {}): Promise<() => vo
 		attachLocal: true,
 	});
 
-	// Exit when pi exits
+	// Exit when pi exits — delay briefly so WebSocket can send the exit message to browsers
 	onPtyExit((exitCode) => {
-		if (tsBin && tailscaleUrl) tailscaleServeOff(tsBin, tsServePath);
-		httpServer.close();
-		process.exit(exitCode);
+		setTimeout(() => {
+			if (tsBin && tailscaleUrl) tailscaleServeOff(tsBin, tsServePath);
+			httpServer.close();
+			process.exit(exitCode);
+		}, 500);
 	});
 
 	// Register cleanup
