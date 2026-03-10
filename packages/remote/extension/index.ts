@@ -90,6 +90,11 @@ export default function (pi: ExtensionAPI) {
 		const remoteUrl = process.env.PI_REMOTE_URL;
 		if (!remoteUrl) return;
 
-		ctx.ui.setWidget("remote-url", ["\x1b[1;36mRemote:\x1b[0m " + remoteUrl]);
+		const lines = ["\x1b[1;36mRemote:\x1b[0m " + remoteUrl];
+		const tailscaleUrl = process.env.PI_REMOTE_TAILSCALE_URL;
+		if (tailscaleUrl) {
+			lines.push("\x1b[1;35mTailscale:\x1b[0m " + tailscaleUrl);
+		}
+		ctx.ui.setWidget("remote-url", lines);
 	});
 }

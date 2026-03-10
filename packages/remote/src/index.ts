@@ -8,11 +8,86 @@
  */
 
 import { execSync } from "node:child_process";
+import { randomBytes as cryptoRandomBytes } from "node:crypto";
 import { killPty, onPtyExit, spawnInPty } from "./pty.js";
 import { ACCESS_TOKEN, getLocalUrl, getPort, startServer } from "./server.js";
 import { setupTerminalWebSocket } from "./ws.js";
 
 export { ACCESS_TOKEN, getLocalUrl, getPort };
+
+// ---------- Tailscale integration ----------
+
+const TAILSCALE_PATHS = [
+	"/usr/local/bin/tailscale",
+	"/usr/bin/tailscale",
+	"/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+];
+
+function findTailscaleBin(): string | null {
+	// Check PATH first
+	for (const cmd of ["which tailscale", "command -v tailscale"]) {
+		try {
+			const result = execSync(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
+			if (result) return result;
+		} catch {}
+	}
+	// Check known locations
+	for (const p of TAILSCALE_PATHS) {
+		try {
+			const { statSync } = require("node:fs");
+			if (statSync(p)) return p;
+		} catch {}
+	}
+	return null;
+}
+
+function getTailscaleHostname(bin: string): string | null {
+	try {
+		const json = execSync(`${JSON.stringify(bin)} status --json`, {
+			encoding: "utf-8",
+			stdio: ["pipe", "pipe", "pipe"],
+		});
+		const dnsName: string = JSON.parse(json)?.Self?.DNSName;
+		// Remove trailing dot
+		return dnsName?.replace(/\.$/, "") ?? null;
+	} catch {
+		return null;
+	}
+}
+
+/** Generate a short session ID for the serve path */
+function generateSessionId(): string {
+	return cryptoRandomBytes(4).toString("hex"); // 8 hex chars
+}
+
+function tailscaleServe(bin: string, port: number, path: string): boolean {
+	try {
+		execSync(
+			`${JSON.stringify(bin)} serve --bg --https 443 --set-path ${JSON.stringify(path)} http://localhost:${port}`,
+			{ encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
+		);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function tailscaleServeOff(bin: string, path: string): void {
+	try {
+		execSync(`${JSON.stringify(bin)} serve --https 443 --set-path ${JSON.stringify(path)} off`, {
+			encoding: "utf-8",
+			stdio: ["pipe", "pipe", "pipe"],
+		});
+	} catch {}
+}
+
+export function getTailscaleUrl(): string | null {
+	const bin = findTailscaleBin();
+	if (!bin) return null;
+	const hostname = getTailscaleHostname(bin);
+	if (!hostname) return null;
+	return `https://${hostname}`;
+}
 
 export interface RemoteOptions {
 	/**
@@ -68,10 +143,28 @@ export async function startRemote(options: RemoteOptions = {}): Promise<() => vo
 	const httpServer = await startServer();
 	setupTerminalWebSocket(httpServer);
 
+	const port = getPort();
 	const url = getLocalUrl();
 
+	// Try to set up Tailscale serve for the remote port on a unique subpath
+	const tsBin = findTailscaleBin();
+	let tailscaleUrl: string | null = null;
+	const sessionId = generateSessionId();
+	const tsServePath = `/pi-${sessionId}`;
+	if (tsBin) {
+		const hostname = getTailscaleHostname(tsBin);
+		if (hostname && tailscaleServe(tsBin, port, tsServePath)) {
+			tailscaleUrl = `https://${hostname}${tsServePath}?token=${ACCESS_TOKEN}`;
+			process.stderr.write(`\x1b[1;35mTailscale:\x1b[0m serving on ${tailscaleUrl}\n`);
+		}
+	}
+
 	// Pass the remote URL to pi so the extension can display it in the TUI
-	const piEnv = { ...(options.env ?? (process.env as Record<string, string>)), PI_REMOTE_URL: url };
+	const piEnv: Record<string, string> = {
+		...(options.env ?? (process.env as Record<string, string>)),
+		PI_REMOTE_URL: url,
+		...(tailscaleUrl ? { PI_REMOTE_TAILSCALE_URL: tailscaleUrl } : {}),
+	};
 
 	// Spawn pi in the PTY with local terminal attached
 	const cols = process.stdout.columns || 120;
@@ -89,12 +182,14 @@ export async function startRemote(options: RemoteOptions = {}): Promise<() => vo
 
 	// Exit when pi exits
 	onPtyExit((exitCode) => {
+		if (tsBin && tailscaleUrl) tailscaleServeOff(tsBin, tsServePath);
 		httpServer.close();
 		process.exit(exitCode);
 	});
 
 	// Register cleanup
 	const cleanup = (): void => {
+		if (tsBin && tailscaleUrl) tailscaleServeOff(tsBin, tsServePath);
 		killPty();
 		httpServer.close();
 	};
