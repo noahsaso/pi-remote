@@ -17,6 +17,14 @@ Remote terminal access for pi via WebSocket. Connect to your pi session from mob
 - **Scroll-to-bottom button** - Appears in the header when scrolled up
 - **Styled error pages** - Dark themed 403/404 pages matching the app style
 
+## Screenshots
+
+### Browser — Remote access modal
+![Remote access modal](docs/remote-access-modal.png)
+
+### TUI — Widget with Tailscale, LAN, and Token
+![TUI widget](docs/tui-widget.png)
+
 ## Usage as a pi Extension
 
 This package is primarily used as a [pi coding agent](https://github.com/badlogic/pi-mono) extension. The extension registers a `/remote` command that lets you switch your current pi session into remote access mode without losing context.
