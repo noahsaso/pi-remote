@@ -1,6 +1,6 @@
-# @q.roy/pi-remote
+# @noahsaso/pi-remote
 
-Remote terminal access for pi via WebSocket. Connect to your pi session from mobile browsers over LAN.
+Remote terminal access for pi via WebSocket with Tailscale integration. Connect to your pi session from mobile browsers over LAN or your tailnet.
 
 ## Features
 
@@ -45,7 +45,7 @@ Or install from npm and reference the package:
 
 ```json
 {
-  "packages": ["@q.roy/pi-remote"]
+  "packages": ["@noahsaso/pi-remote"]
 }
 ```
 
@@ -90,7 +90,7 @@ When running inside a remote session, a persistent widget above the editor shows
 You can also launch remote mode directly from the terminal without a running pi session:
 
 ```bash
-npm install -g @q.roy/pi-remote
+npm install -g @noahsaso/pi-remote
 pi-remote
 ```
 
@@ -148,7 +148,7 @@ PORT=8080 pi-remote
 ### `startRemote(options)`
 
 ```typescript
-import { startRemote } from "@q.roy/pi-remote";
+import { startRemote } from "@noahsaso/pi-remote";
 
 const cleanup = await startRemote({
   piPath: "/usr/local/bin/pi",  // optional, auto-detected

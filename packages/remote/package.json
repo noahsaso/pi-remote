@@ -1,7 +1,7 @@
 {
-	"name": "@q.roy/pi-remote",
-	"version": "0.1.2",
-	"description": "Remote terminal access for pi via WebSocket and browser",
+	"name": "@noahsaso/pi-remote",
+	"version": "0.2.0",
+	"description": "Remote terminal access for pi via WebSocket and browser, with Tailscale integration",
 	"type": "module",
 	"bin": {
 		"pi-remote": "dist/cli.js"
@@ -16,6 +16,7 @@
 	},
 	"files": [
 		"dist",
+		"docs",
 		"extension",
 		"web-dist",
 		"CHANGELOG.md"
@@ -53,13 +54,14 @@
 		"remote",
 		"terminal",
 		"pty",
-		"websocket"
+		"websocket",
+		"tailscale"
 	],
-	"author": "Q.Roy <ruanqisevik@gmail.com>",
+	"author": "Noah Saso",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/ruanqisevik/pi-mono-extensions.git"
+		"url": "git+https://github.com/noahsaso/pi-remote.git"
 	},
 	"engines": {
 		"node": ">=20.0.0"
