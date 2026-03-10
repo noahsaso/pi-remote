@@ -5,12 +5,17 @@ Remote terminal access for pi via WebSocket. Connect to your pi session from mob
 ## Features
 
 - **PTY-based remote access** - Wraps pi in a pseudo-terminal for optimal performance
-- **WebSocket bridge** - Real-time bidirectional terminal I/O
+- **WebSocket bridge** - Real-time bidirectional terminal I/O with auto-reconnect and output replay buffer
 - **Mobile-first** - Touch scroll with momentum, virtual keybar (arrows, Ctrl+C, etc.)
-- **Token authentication** - Secure LAN access with auto-generated tokens
+- **Token authentication** - All connections require token auth (HTTP, WebSocket, API)
+- **Auth modal** - Browser prompts for token if missing/invalid, with error feedback on retry
 - **QR code** - Scan to connect instantly from mobile
 - **`/remote` command** - Restart pi in remote mode from within a running session
 - **Tailscale integration** - Automatically serves over HTTPS on your tailnet with a unique session subpath
+- **TUI widget** - Shows Tailscale URL, LAN URL, and token in a bordered card above the editor
+- **Session ended overlay** - Browser shows a modal when the remote session exits
+- **Scroll-to-bottom button** - Appears in the header when scrolled up
+- **Styled error pages** - Dark themed 403/404 pages matching the app style
 
 ## Usage as a pi Extension
 
@@ -121,12 +126,12 @@ PORT=8080 pi-remote
 
 | Path | Description |
 |------|-------------|
-| `extension/index.ts` | Pi extension entry — registers `/remote` command and remote URL widget |
+| `extension/index.ts` | Pi extension entry — registers `/remote` command and bordered TUI widget (Tailscale, LAN, Token) |
 | `src/cli.ts` | `pi-remote` binary entry point |
 | `src/pty.ts` | PTY management (node-pty), stdin/stdout attachment |
 | `src/ws.ts` | WebSocket bridge, mobile-priority resize logic |
-| `src/server.ts` | HTTP server with token auth, `/api/local-url` endpoint |
-| `web/` | Browser frontend (xterm.js, touch scroll, virtual keybar) |
+| `src/server.ts` | HTTP server with token auth, `/api/local-url` endpoint, styled error pages |
+| `web/` | Browser frontend (xterm.js, touch scroll, virtual keybar, auth modal, session ended overlay) |
 
 ---
 
@@ -171,13 +176,14 @@ When [Tailscale](https://tailscale.com) is installed and running, pi-remote auto
 
 **Graceful fallback:** If Tailscale is not installed, not running, or the serve command fails, pi-remote continues normally with just the LAN URL. No errors are shown.
 
-**Multiple sessions:** Each session gets a unique `/pi-{8-hex-chars}` subpath, so multiple remote sessions can coexist on the same machine.
+**Multiple sessions:** Each session gets a unique `/pi/{8-hex-chars}/` subpath, so multiple remote sessions can coexist on the same machine.
 
 ## Security
 
-- **Token-based auth** — Random 16-byte token required for all remote connections
-- **Localhost exempt** — `127.0.0.1` connections skip token verification
-- **LAN only** — Designed for local network use, not intended to be exposed to the internet
+- **Token-based auth** — Random 16-byte token required for all connections (HTTP API, WebSocket, pages). Static assets and the SPA shell are exempt so the auth modal can load.
+- **No localhost exemption** — Even connections from `127.0.0.1` (including Tailscale proxy) require a valid token
+- **Auth modal** — If the browser doesn't have a valid token, a login modal prompts for one
+- **Styled error pages** — Invalid tokens show a dark-themed "Access denied" page; bad paths show "No session found"
 - **Tailscale** — When using Tailscale, traffic is encrypted end-to-end within your tailnet using auto-provisioned TLS certificates
 
 ---
