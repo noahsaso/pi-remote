@@ -1,6 +1,6 @@
 # pi-remote
 
-Fork of [@q.roy/pi-remote](https://github.com/ruanqisevik/pi-mono-extensions) with Tailscale integration, token auth enforcement, and UI improvements.
+Fork of [@q.roy/pi-remote](https://github.com/ruanqisevik/pi-mono-extensions) with Tailscale integration, token auth enforcement, and UI improvements. Published as [`@noahsaso/pi-remote`](https://www.npmjs.com/package/@noahsaso/pi-remote).
 
 ## Packages
 
