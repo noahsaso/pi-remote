@@ -141,6 +141,12 @@ const topbar = document.createElement("div");
 topbar.id = "topbar";
 topbar.innerHTML = `<span class="title">π remote</span>`;
 
+const scrollBtn = document.createElement("button");
+scrollBtn.id = "scroll-btn";
+scrollBtn.textContent = "↓ Bottom";
+scrollBtn.style.display = "none";
+topbar.appendChild(scrollBtn);
+
 const remoteBtn = document.createElement("button");
 remoteBtn.textContent = isMobile ? "Info" : "Remote link";
 topbar.appendChild(remoteBtn);
@@ -181,6 +187,19 @@ document.body.appendChild(overlay);
 // ─── Terminal ─────────────────────────────────────────────────────────────────
 
 const tv = new TerminalView(termWrap);
+
+// ─── Scroll to bottom button ──────────────────────────────────────────────────
+
+function updateScrollBtn(): void {
+	scrollBtn.style.display = tv.isScrolledToBottom() ? "none" : "";
+}
+
+scrollBtn.addEventListener("click", () => {
+	tv.scrollToBottom();
+	scrollBtn.style.display = "none";
+});
+
+tv.onScroll(updateScrollBtn);
 
 // ─── Virtual keybar buttons ───────────────────────────────────────────────────
 
@@ -231,21 +250,29 @@ async function loadRemoteUrl(): Promise<void> {
 		// Pass the current token along so the API call is authorised
 		const token = new URLSearchParams(window.location.search).get("token");
 		const tokenParam = token ? `?token=${token}` : "";
-		const res = await fetch(`/api/local-url${tokenParam}`);
-		const data = (await res.json()) as { url: string };
-		const url = data.url;
+		const basePath = window.location.pathname.replace(/\/$/, "");
+		const res = await fetch(`${basePath}/api/local-url${tokenParam}`);
+		const data = (await res.json()) as { url: string; tailscaleUrl?: string };
+		const lanUrl = data.url;
+		const tsUrl = data.tailscaleUrl;
+		// Prefer Tailscale URL for QR code if available
+		const qrUrl = tsUrl ?? lanUrl;
 
 		const urlEl = document.getElementById("remote-url")!;
-		urlEl.textContent = url;
+		if (tsUrl) {
+			urlEl.innerHTML = `<strong style="color:#c084fc">Tailscale:</strong> ${tsUrl}<br><span style="color:#666">LAN:</span> ${lanUrl}`;
+		} else {
+			urlEl.textContent = lanUrl;
+		}
 
 		const canvas = document.getElementById("qr-canvas") as HTMLCanvasElement;
-		await QRCode.toCanvas(canvas, url, {
+		await QRCode.toCanvas(canvas, qrUrl, {
 			width: 200,
 			color: { dark: "#d9d9d9", light: "#141414" },
 		});
 
 		document.getElementById("copy-btn")!.addEventListener("click", () => {
-			navigator.clipboard.writeText(url).catch(() => {});
+			navigator.clipboard.writeText(qrUrl).catch(() => {});
 		});
 	} catch {
 		const urlEl = document.getElementById("remote-url");
@@ -260,6 +287,12 @@ remoteBtn.addEventListener("click", () => {
 
 document.getElementById("close-btn")?.addEventListener("click", () => {
 	overlay.classList.add("hidden");
+});
+
+document.addEventListener("keydown", (e) => {
+	if (e.key === "Escape" && !overlay.classList.contains("hidden")) {
+		overlay.classList.add("hidden");
+	}
 });
 
 // On desktop, show the overlay on first load so the user knows the remote URL

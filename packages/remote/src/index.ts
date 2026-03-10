@@ -9,8 +9,9 @@
 
 import { execSync } from "node:child_process";
 import { randomBytes as cryptoRandomBytes } from "node:crypto";
+import { statSync } from "node:fs";
 import { killPty, onPtyExit, spawnInPty } from "./pty.js";
-import { ACCESS_TOKEN, getLocalUrl, getPort, startServer } from "./server.js";
+import { ACCESS_TOKEN, getLocalUrl, getPort, setTailscaleUrl as setServerTailscaleUrl, startServer } from "./server.js";
 import { setupTerminalWebSocket } from "./ws.js";
 
 export { ACCESS_TOKEN, getLocalUrl, getPort };
@@ -28,16 +29,22 @@ function findTailscaleBin(): string | null {
 	for (const cmd of ["which tailscale", "command -v tailscale"]) {
 		try {
 			const result = execSync(cmd, { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] }).trim();
-			if (result) return result;
+			if (result) {
+				process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m found via "${cmd}": ${result}\n`);
+				return result;
+			}
 		} catch {}
 	}
 	// Check known locations
 	for (const p of TAILSCALE_PATHS) {
 		try {
-			const { statSync } = require("node:fs");
-			if (statSync(p)) return p;
+			if (statSync(p)) {
+				process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m found at known path: ${p}\n`);
+				return p;
+			}
 		} catch {}
 	}
+	process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m not found in PATH or known locations\n`);
 	return null;
 }
 
@@ -150,12 +157,21 @@ export async function startRemote(options: RemoteOptions = {}): Promise<() => vo
 	const tsBin = findTailscaleBin();
 	let tailscaleUrl: string | null = null;
 	const sessionId = generateSessionId();
-	const tsServePath = `/pi-${sessionId}`;
+	const tsServePath = `/pi/${sessionId}/`;
+	process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m binary: ${tsBin ?? "not found"}\n`);
 	if (tsBin) {
 		const hostname = getTailscaleHostname(tsBin);
-		if (hostname && tailscaleServe(tsBin, port, tsServePath)) {
-			tailscaleUrl = `https://${hostname}${tsServePath}?token=${ACCESS_TOKEN}`;
-			process.stderr.write(`\x1b[1;35mTailscale:\x1b[0m serving on ${tailscaleUrl}\n`);
+		process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m hostname: ${hostname ?? "not found"}\n`);
+		if (hostname) {
+			const serveCmd = `${JSON.stringify(tsBin)} serve --bg --https 443 --set-path ${JSON.stringify(tsServePath)} http://localhost:${port}`;
+			process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m running: ${serveCmd}\n`);
+			const served = tailscaleServe(tsBin, port, tsServePath);
+			process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m serve result: ${served ? "ok" : "failed"}\n`);
+			if (served) {
+				tailscaleUrl = `https://${hostname}${tsServePath}?token=${ACCESS_TOKEN}`;
+				setServerTailscaleUrl(tailscaleUrl);
+				process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m url: ${tailscaleUrl}\n`);
+			}
 		}
 	}
 

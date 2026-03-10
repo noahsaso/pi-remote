@@ -164,9 +164,10 @@ When [Tailscale](https://tailscale.com) is installed and running, pi-remote auto
 
 1. Detects the Tailscale binary (checks PATH, then known locations for macOS/Linux)
 2. Gets the machine's Tailscale hostname via `tailscale status --json`
-3. Runs `tailscale serve --bg --https 443 --set-path /pi-{session-id} http://localhost:{port}`
-4. Displays the full URL with auth token: `https://your-host.tailnet.ts.net/pi-abc123?token=...`
-5. Cleans up the specific serve route on exit (without affecting other `tailscale serve` routes)
+3. Runs `tailscale serve --bg --https 443 --set-path /pi/{session-id}/ http://localhost:{port}`
+4. Displays the full URL with auth token: `https://your-host.tailnet.ts.net/pi/abc123/?token=...`
+5. Shows the Tailscale URL in the QR code modal (with LAN URL as fallback)
+6. Cleans up the specific serve route on exit (without affecting other `tailscale serve` routes)
 
 **Graceful fallback:** If Tailscale is not installed, not running, or the serve command fails, pi-remote continues normally with just the LAN URL. No errors are shown.
 

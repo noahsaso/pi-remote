@@ -111,7 +111,9 @@ export class TerminalView {
 		// Preserve ?token= query param for authentication
 		const token = new URLSearchParams(window.location.search).get("token");
 		const tokenParam = token ? `?token=${token}` : "";
-		const wsUrl = `${proto}//${window.location.host}/ws/terminal${tokenParam}`;
+		// Use path-relative WebSocket URL so it works behind subpath proxies (e.g. Tailscale serve)
+		const basePath = window.location.pathname.replace(/\/$/, "");
+		const wsUrl = `${proto}//${window.location.host}${basePath}/ws/terminal${tokenParam}`;
 
 		this.ws = new WebSocket(wsUrl);
 
@@ -359,6 +361,24 @@ export class TerminalView {
 			};
 			momentumRaf = requestAnimationFrame(tick);
 		}, { passive: true });
+	}
+
+	// -------------------------------------------------------------------------
+	// Scroll helpers
+	// -------------------------------------------------------------------------
+
+	isScrolledToBottom(): boolean {
+		const buf = this.terminal.buffer.active;
+		return buf.viewportY >= buf.baseY;
+	}
+
+	scrollToBottom(): void {
+		this.terminal.scrollToBottom();
+	}
+
+	onScroll(cb: () => void): void {
+		this.terminal.onScroll(cb);
+		this.terminal.onWriteParsed(cb);
 	}
 
 	// -------------------------------------------------------------------------

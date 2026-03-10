@@ -34,6 +34,15 @@ export const ACCESS_TOKEN = randomBytes(16).toString("hex");
 
 let server: Server | null = null;
 let actualPort = START_PORT;
+let tailscaleUrl: string | null = null;
+
+export function setTailscaleUrl(url: string): void {
+	tailscaleUrl = url;
+}
+
+export function getTailscaleUrl(): string | null {
+	return tailscaleUrl;
+}
 
 export function getPort(): number {
 	return actualPort;
@@ -98,7 +107,7 @@ async function handleRequest(
 	// API: return the LAN URL with token (for QR code generation in the UI)
 	if (url === "/api/local-url" && method === "GET") {
 		res.writeHead(200, { "Content-Type": "application/json" });
-		res.end(JSON.stringify({ url: getLocalUrl() }));
+		res.end(JSON.stringify({ url: getLocalUrl(), tailscaleUrl: getTailscaleUrl() }));
 		return;
 	}
 
