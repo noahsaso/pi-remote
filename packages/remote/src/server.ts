@@ -90,12 +90,11 @@ async function handleRequest(
 		return;
 	}
 
-	// Token auth: local connections and static assets are exempt
-	const remoteIp = req.socket.remoteAddress ?? "";
-	const isLocal = remoteIp === "127.0.0.1" || remoteIp === "::1" || remoteIp === "::ffff:127.0.0.1";
+	// Token auth: static assets and the SPA shell are exempt (auth enforced at WebSocket + API level)
 	const isStaticAsset = url.startsWith("/assets/") || url === "/favicon.ico";
+	const isSpaPage = url === "/" || url === "/index.html";
 
-	if (!isLocal && !isStaticAsset) {
+	if (!isStaticAsset && !isSpaPage) {
 		const urlToken = parsedUrl.searchParams.get("token");
 		if (urlToken !== ACCESS_TOKEN) {
 			res.writeHead(403, { "Content-Type": "application/json" });

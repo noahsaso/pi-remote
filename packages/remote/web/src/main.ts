@@ -129,6 +129,54 @@ style.textContent = `
   }
   #overlay-buttons button:hover { background: #2e2e2e; }
   #overlay-buttons button.primary { border-color: #555; color: #fff; background: #2a2a2a; }
+
+  /* ── Token auth overlay ──────────────────────────────────────────────────── */
+  #auth-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+  }
+  #auth-overlay.hidden { display: none; }
+  #auth-card {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 24px 28px;
+    max-width: 340px;
+    width: 90%;
+    text-align: center;
+  }
+  #auth-card h2 { margin-bottom: 6px; font-size: 16px; color: #e0e0e0; }
+  #auth-card p { font-size: 12px; color: #888; margin-bottom: 16px; }
+  #auth-card input {
+    width: 100%;
+    background: #111;
+    border: 1px solid #444;
+    border-radius: 5px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: monospace;
+    color: #d4d4d4;
+    margin-bottom: 14px;
+    outline: none;
+    box-sizing: border-box;
+  }
+  #auth-card input:focus { border-color: #666; }
+  #auth-card .error { color: #f87171; font-size: 11px; margin-bottom: 10px; display: none; }
+  #auth-card button {
+    background: #2a2a2a;
+    border: 1px solid #555;
+    border-radius: 5px;
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 20px;
+    cursor: pointer;
+  }
+  #auth-card button:hover { background: #333; }
 `;
 document.head.appendChild(style);
 
@@ -184,9 +232,52 @@ overlay.innerHTML = `
 `;
 document.body.appendChild(overlay);
 
+// Auth overlay
+const authOverlay = document.createElement("div");
+authOverlay.id = "auth-overlay";
+authOverlay.classList.add("hidden");
+authOverlay.innerHTML = `
+  <div id="auth-card">
+    <h2>🔒 Authentication required</h2>
+    <p>Enter the access token to connect to this remote session.</p>
+    <div class="error" id="auth-error">Invalid token. Please try again.</div>
+    <input type="text" id="auth-input" placeholder="Paste token here..." autocomplete="off" spellcheck="false" />
+    <button id="auth-submit">Connect</button>
+  </div>
+`;
+document.body.appendChild(authOverlay);
+
 // ─── Terminal ─────────────────────────────────────────────────────────────────
 
 const tv = new TerminalView(termWrap);
+
+// Wire auth error handler
+let authAttempted = false;
+tv.onAuthError(() => {
+	if (authAttempted) {
+		// Show error on retry failures
+		const errEl = document.getElementById("auth-error")!;
+		errEl.style.display = "block";
+	}
+	authAttempted = true;
+	authOverlay.classList.remove("hidden");
+	const input = document.getElementById("auth-input") as HTMLInputElement;
+	input.value = "";
+	input.focus();
+});
+
+function submitToken(): void {
+	const input = document.getElementById("auth-input") as HTMLInputElement;
+	const token = input.value.trim();
+	if (!token) return;
+	authOverlay.classList.add("hidden");
+	tv.setToken(token);
+}
+
+document.getElementById("auth-submit")!.addEventListener("click", submitToken);
+document.getElementById("auth-input")!.addEventListener("keydown", (e) => {
+	if (e.key === "Enter") submitToken();
+});
 
 // ─── Scroll to bottom button ──────────────────────────────────────────────────
 
@@ -287,6 +378,10 @@ remoteBtn.addEventListener("click", () => {
 
 document.getElementById("close-btn")?.addEventListener("click", () => {
 	overlay.classList.add("hidden");
+});
+
+overlay.addEventListener("click", (e) => {
+	if (e.target === overlay) overlay.classList.add("hidden");
 });
 
 document.addEventListener("keydown", (e) => {

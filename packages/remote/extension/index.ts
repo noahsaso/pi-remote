@@ -90,11 +90,24 @@ export default function (pi: ExtensionAPI) {
 		const remoteUrl = process.env.PI_REMOTE_URL;
 		if (!remoteUrl) return;
 
-		const lines = ["\x1b[1;36mRemote:\x1b[0m " + remoteUrl];
 		const tailscaleUrl = process.env.PI_REMOTE_TAILSCALE_URL;
+		const contentLines: string[] = [];
 		if (tailscaleUrl) {
-			lines.push("\x1b[1;35mTailscale:\x1b[0m " + tailscaleUrl);
+			contentLines.push("  \x1b[1;35mTailscale:\x1b[0m " + tailscaleUrl);
 		}
+		contentLines.push("  \x1b[1;36mLAN:\x1b[0m " + remoteUrl);
+
+		// Extract token from the URL
+		const tokenMatch = remoteUrl.match(/[?&]token=([^&]+)/);
+		if (tokenMatch) {
+			contentLines.push("  \x1b[1;33mToken:\x1b[0m " + tokenMatch[1]);
+		}
+
+		const title = " Remote access ";
+		const topBorder = `\x1b[90m╭${title}${"─".repeat(40)}╮\x1b[0m`;
+		const botBorder = `\x1b[90m╰${"─".repeat(40 + title.length)}╯\x1b[0m`;
+
+		const lines = [topBorder, ...contentLines, botBorder];
 		ctx.ui.setWidget("remote-url", lines);
 	});
 }

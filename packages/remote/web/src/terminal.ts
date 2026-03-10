@@ -107,6 +107,22 @@ export class TerminalView {
 	// WebSocket
 	// -------------------------------------------------------------------------
 
+	private onAuthRequired: (() => void) | null = null;
+
+	/** Register a callback for when authentication fails */
+	onAuthError(cb: () => void): void {
+		this.onAuthRequired = cb;
+	}
+
+	/** Update the token and reconnect */
+	setToken(token: string): void {
+		const url = new URL(window.location.href);
+		url.searchParams.set("token", token);
+		window.history.replaceState({}, "", url.toString());
+		this.ws?.close();
+		this.connect();
+	}
+
 	private connect(): void {
 		const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
 		// Preserve ?token= query param for authentication
@@ -138,7 +154,14 @@ export class TerminalView {
 			}
 		};
 
+		let opened = false;
+
 		this.ws.onclose = () => {
+			if (!opened && this.onAuthRequired) {
+				// WebSocket closed before opening — likely a 403
+				this.onAuthRequired();
+				return;
+			}
 			// Auto-reconnect after 2s
 			setTimeout(() => {
 				if (this.container.isConnected) this.connect();
@@ -146,6 +169,7 @@ export class TerminalView {
 		};
 
 		this.ws.onopen = () => {
+			opened = true;
 			this.sendResize();
 		};
 	}

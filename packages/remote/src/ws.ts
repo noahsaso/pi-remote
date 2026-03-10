@@ -9,6 +9,7 @@ import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { type WebSocket, WebSocketServer } from "ws";
 import { getOutputBuffer, getPtyState, onPtyData, onPtyExit, resizePty, writeToPty } from "./pty.js";
+import { ACCESS_TOKEN } from "./server.js";
 
 interface ClientSize {
 	cols: number;
@@ -51,8 +52,15 @@ export function setupTerminalWebSocket(httpServer: Server): void {
 	};
 
 	httpServer.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
-		const pathname = new URL(req.url ?? "/", `http://${req.headers.host}`).pathname;
-		if (pathname === "/ws/terminal") {
+		const parsed = new URL(req.url ?? "/", `http://${req.headers.host}`);
+		if (parsed.pathname === "/ws/terminal") {
+			// Require valid token for WebSocket connections
+			const token = parsed.searchParams.get("token");
+			if (token !== ACCESS_TOKEN) {
+				socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+				socket.destroy();
+				return;
+			}
 			wss.handleUpgrade(req, socket, head, (ws) => {
 				wss.emit("connection", ws, req);
 			});
