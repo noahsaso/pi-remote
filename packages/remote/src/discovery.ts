@@ -119,7 +119,7 @@ function spawnSession(){
   var btn=document.getElementById('spawn-btn');
   btn.classList.add('spawning');
   btn.textContent='Starting\u2026';
-  fetch('/api/spawn?token=${TOKEN}',{method:'POST'})
+  fetch('api/spawn?token=${TOKEN}',{method:'POST'})
     .then(function(r){return r.json()})
     .then(function(d){
       if(d.ok){setTimeout(function(){location.reload()},2500)}
