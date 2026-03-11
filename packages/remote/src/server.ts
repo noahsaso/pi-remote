@@ -3,7 +3,6 @@
  * and exposes /api/local-url for generating the shareable LAN link.
  */
 
-import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { createConnection } from "node:net";
@@ -29,8 +28,14 @@ const MIME: Record<string, string> = {
 	".woff": "font/woff",
 };
 
-/** One-time random token for LAN access auth. Local clients are exempt. */
-export const ACCESS_TOKEN = randomBytes(16).toString("hex");
+/** Shared access token — set by index.ts from the discovery service. */
+let ACCESS_TOKEN = "";
+export function setAccessToken(token: string): void {
+	ACCESS_TOKEN = token;
+}
+export function getAccessToken(): string {
+	return ACCESS_TOKEN;
+}
 
 let server: Server | null = null;
 let actualPort = START_PORT;

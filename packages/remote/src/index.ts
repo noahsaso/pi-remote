@@ -3,23 +3,98 @@
  * browser/mobile access.
  *
  * Usage:
- *   import { startRemote } from "@q.roy/pi-remote";
+ *   import { startRemote } from "@noahsaso/pi-remote";
  *   await startRemote({ piPath: "/path/to/pi", args: ["-c"] });
  */
 
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import { randomBytes as cryptoRandomBytes } from "node:crypto";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { DISCOVERY_PORT } from "./discovery.js";
 import { killPty, onPtyExit, spawnInPty } from "./pty.js";
-import { ACCESS_TOKEN, getLocalUrl, getPort, setTailscaleUrl as setServerTailscaleUrl, startServer } from "./server.js";
+import {
+	getAccessToken,
+	getLocalUrl,
+	getPort,
+	setAccessToken,
+	setTailscaleUrl as setServerTailscaleUrl,
+	startServer,
+} from "./server.js";
 import { findTailscaleBin, getTailscaleHostname, tailscaleServe, tailscaleServeOff } from "./tailscale.js";
 import { setupTerminalWebSocket } from "./ws.js";
 
-export { ACCESS_TOKEN, getLocalUrl, getPort };
+export { getAccessToken, getLocalUrl, getPort };
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DISCOVERY_URL = `http://127.0.0.1:${DISCOVERY_PORT}`;
+
+// ---------- Discovery client ----------
+
+async function fetchDiscovery(path: string, options?: RequestInit): Promise<Response | null> {
+	try {
+		return await fetch(`${DISCOVERY_URL}${path}`, options);
+	} catch {
+		return null;
+	}
+}
+
+async function getDiscoveryToken(): Promise<string | null> {
+	const res = await fetchDiscovery("/api/token");
+	if (!res?.ok) return null;
+	const { token } = (await res.json()) as { token: string };
+	return token;
+}
+
+async function ensureDiscoveryService(): Promise<string> {
+	// Try to reach existing discovery service
+	let token = await getDiscoveryToken();
+	if (token) {
+		process.stderr.write("\x1b[1;32m[discovery]\x1b[0m connected to existing service\n");
+		return token;
+	}
+
+	// Spawn discovery service as detached process
+	const entryPoint = join(__dirname, "discovery-main.js");
+	process.stderr.write(`\x1b[1;32m[discovery]\x1b[0m spawning: ${entryPoint}\n`);
+	const child = spawn(process.execPath, [entryPoint], {
+		detached: true,
+		stdio: "ignore",
+	});
+	child.unref();
+
+	// Poll until ready (max 5 seconds)
+	for (let i = 0; i < 50; i++) {
+		await new Promise((r) => setTimeout(r, 100));
+		token = await getDiscoveryToken();
+		if (token) {
+			process.stderr.write("\x1b[1;32m[discovery]\x1b[0m service started\n");
+			return token;
+		}
+	}
+	throw new Error("Discovery service failed to start within 5 seconds");
+}
+
+async function registerSession(sessionId: string, port: number, cwd: string): Promise<void> {
+	await fetchDiscovery("/api/sessions", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ sessionId, port, cwd }),
+	});
+}
+
+async function deregisterSession(sessionId: string): Promise<void> {
+	await fetchDiscovery(`/api/sessions/${sessionId}`, { method: "DELETE" });
+}
+
+// ---------- Session ID ----------
 
 /** Generate a short session ID for the serve path */
 function generateSessionId(): string {
 	return cryptoRandomBytes(4).toString("hex"); // 8 hex chars
 }
+
+// ---------- Public API ----------
 
 export interface RemoteOptions {
 	/**
@@ -58,10 +133,13 @@ function resolvePiPath(piPath?: string): string {
 
 /**
  * Start a remote pi session:
- *  1. Start the HTTP server (static web UI + /api/local-url)
- *  2. Attach the WebSocket terminal bridge
- *  3. Pass remote URL to pi via PI_REMOTE_URL env var
- *  4. Spawn pi inside a PTY with local terminal attached
+ *  1. Ensure the discovery service is running and get the shared token
+ *  2. Start the HTTP server (static web UI + /api/local-url)
+ *  3. Attach the WebSocket terminal bridge
+ *  4. Register this session with the discovery service
+ *  5. Set up Tailscale serve for this session's subpath
+ *  6. Pass remote URL to pi via PI_REMOTE_URL env var
+ *  7. Spawn pi inside a PTY with local terminal attached
  *
  * The extension (loaded by pi) reads PI_REMOTE_URL and shows
  * a persistent widget with the remote URL in the TUI.
@@ -70,18 +148,26 @@ function resolvePiPath(piPath?: string): string {
  */
 export async function startRemote(options: RemoteOptions = {}): Promise<() => void> {
 	const piPath = resolvePiPath(options.piPath);
+	const sessionId = generateSessionId();
+	const cwd = options.cwd ?? process.cwd();
 
-	// Start HTTP server first (so the port is known before printing the URL)
+	// 1. Ensure discovery service is running and get shared token
+	const token = await ensureDiscoveryService();
+	setAccessToken(token);
+
+	// 2. Start HTTP server (so the port is known before printing the URL)
 	const httpServer = await startServer();
 	setupTerminalWebSocket(httpServer);
 
 	const port = getPort();
 	const url = getLocalUrl();
 
-	// Try to set up Tailscale serve for the remote port on a unique subpath
+	// 3. Register this session with the discovery service
+	await registerSession(sessionId, port, cwd);
+
+	// 4. Try to set up Tailscale serve for this session's subpath
 	const tsBin = findTailscaleBin();
 	let tailscaleUrl: string | null = null;
-	const sessionId = generateSessionId();
 	const tsServePath = `/pi/${sessionId}/`;
 	process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m binary: ${tsBin ?? "not found"}\n`);
 	if (tsBin) {
@@ -93,28 +179,39 @@ export async function startRemote(options: RemoteOptions = {}): Promise<() => vo
 			const served = tailscaleServe(tsBin, port, tsServePath);
 			process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m serve result: ${served ? "ok" : "failed"}\n`);
 			if (served) {
-				tailscaleUrl = `https://${hostname}${tsServePath}?token=${ACCESS_TOKEN}`;
+				tailscaleUrl = `https://${hostname}${tsServePath}?token=${token}`;
 				setServerTailscaleUrl(tailscaleUrl);
 				process.stderr.write(`\x1b[1;35m[tailscale]\x1b[0m url: ${tailscaleUrl}\n`);
 			}
 		}
 	}
 
-	// Pass the remote URL to pi so the extension can display it in the TUI
+	// 5. Build discovery URL for the TUI widget
+	let discoveryUrl: string | null = null;
+	if (tsBin && tailscaleUrl) {
+		// Extract base Tailscale URL (hostname) from the session URL
+		const hostname = getTailscaleHostname(tsBin);
+		if (hostname) {
+			discoveryUrl = `https://${hostname}/pi/?token=${token}`;
+		}
+	}
+
+	// 6. Pass the remote URL to pi so the extension can display it in the TUI
 	const piEnv: Record<string, string> = {
 		...(options.env ?? (process.env as Record<string, string>)),
 		PI_REMOTE_URL: url,
 		...(tailscaleUrl ? { PI_REMOTE_TAILSCALE_URL: tailscaleUrl } : {}),
+		...(discoveryUrl ? { PI_REMOTE_DISCOVERY_URL: discoveryUrl } : {}),
 	};
 
-	// Spawn pi in the PTY with local terminal attached
+	// 7. Spawn pi in the PTY with local terminal attached
 	const cols = process.stdout.columns || 120;
 	const rows = process.stdout.rows || 30;
 
 	await spawnInPty({
 		command: piPath,
 		args: options.args ?? [],
-		cwd: options.cwd ?? process.cwd(),
+		cwd,
 		env: piEnv,
 		cols,
 		rows,
@@ -123,8 +220,9 @@ export async function startRemote(options: RemoteOptions = {}): Promise<() => vo
 
 	// Exit when pi exits — delay briefly so WebSocket can send the exit message to browsers
 	onPtyExit((exitCode) => {
-		setTimeout(() => {
+		setTimeout(async () => {
 			if (tsBin && tailscaleUrl) tailscaleServeOff(tsBin, tsServePath);
+			await deregisterSession(sessionId);
 			httpServer.close();
 			process.exit(exitCode);
 		}, 500);
@@ -133,6 +231,7 @@ export async function startRemote(options: RemoteOptions = {}): Promise<() => vo
 	// Register cleanup
 	const cleanup = (): void => {
 		if (tsBin && tailscaleUrl) tailscaleServeOff(tsBin, tsServePath);
+		deregisterSession(sessionId).catch(() => {});
 		killPty();
 		httpServer.close();
 	};
