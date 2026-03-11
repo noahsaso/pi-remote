@@ -64,25 +64,22 @@ export default function (pi: ExtensionAPI) {
 		},
 	});
 
-	// ---------- /end-remote command ----------
+	// ---------- /end-remote command (only when remote is active) ----------
 
-	pi.registerCommand("end-remote", {
-		description: "Stop remote access and restart pi normally",
-		handler: async (_args, ctx) => {
-			if (!process.env.PI_REMOTE_URL) {
-				ctx.ui.notify("Not currently in a remote session.", "error");
-				return;
-			}
+	if (process.env.PI_REMOTE_URL) {
+		pi.registerCommand("end-remote", {
+			description: "Stop remote access and restart pi normally",
+			handler: async (_args, ctx) => {
+				await ctx.waitForIdle();
 
-			await ctx.waitForIdle();
+				sessionFileForAction = ctx.sessionManager.getSessionFile();
+				pendingAction = "end-remote";
 
-			sessionFileForAction = ctx.sessionManager.getSessionFile();
-			pendingAction = "end-remote";
-
-			ctx.ui.notify("Stopping remote access. Your session will be preserved.", "info");
-			ctx.shutdown();
-		},
-	});
+				ctx.ui.notify("Stopping remote access. Your session will be preserved.", "info");
+				ctx.shutdown();
+			},
+		});
+	}
 
 	pi.on("session_shutdown", async () => {
 		if (!pendingAction) return;
