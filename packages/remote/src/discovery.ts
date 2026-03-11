@@ -69,7 +69,9 @@ function sessionCard(s: Session, baseUrl: string, token: string): string {
 
 function renderPage(): string {
 	const baseUrl = tailscaleUrl ? `https://${tsHostname}` : `http://127.0.0.1:${DISCOVERY_PORT}`;
-	const sessionList = Array.from(sessions.values());
+	const sessionList = Array.from(sessions.values()).sort(
+		(a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime(),
+	);
 
 	const cardsHtml =
 		sessionList.length > 0
