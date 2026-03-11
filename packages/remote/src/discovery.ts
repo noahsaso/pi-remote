@@ -31,6 +31,7 @@ interface Session {
 
 const sessions = new Map<string, Session>();
 const TOKEN = randomBytes(16).toString("hex");
+let persistentMode = false;
 
 let server: Server | null = null;
 let tsBin: string | null = null;
@@ -184,8 +185,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 			sessions.delete(sessionId);
 			res.writeHead(200, { "Content-Type": "application/json" });
 			res.end(JSON.stringify({ ok: true }));
-			// Shut down if no sessions remain
-			if (sessions.size === 0) setTimeout(shutdown, 500);
+			// Shut down if no sessions remain (unless running in persistent mode)
+			if (sessions.size === 0 && !persistentMode) setTimeout(shutdown, 500);
 			return;
 		}
 	}
@@ -209,7 +210,8 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 
 // ---------- Server startup ----------
 
-export function startDiscoveryService(): Promise<void> {
+export function startDiscoveryService(persistent = false): Promise<void> {
+	persistentMode = persistent;
 	return new Promise((resolve, reject) => {
 		const httpServer = createServer(handleRequest);
 
