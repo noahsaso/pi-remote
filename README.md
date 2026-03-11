@@ -6,7 +6,7 @@ Fork of [@q.roy/pi-remote](https://github.com/ruanqisevik/pi-mono-extensions) wi
 
 | Package | Description |
 |---------|-------------|
-| [remote](packages/remote) | Remote terminal access for pi via WebSocket and browser, with automatic Tailscale HTTPS serving |
+| [remote](packages/remote) | Remote terminal access for pi via WebSocket and browser, with Tailscale HTTPS serving and multi-session discovery service |
 
 ## Screenshots
 
