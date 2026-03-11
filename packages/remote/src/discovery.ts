@@ -15,9 +15,16 @@
  *   GET / → session list (cards with cwd + relative time)
  */
 
+import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { findTailscaleBin, getTailscaleHostname, tailscaleServe, tailscaleServeOff } from "./tailscale.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const MAX_SESSIONS = 10;
 
 export const DISCOVERY_PORT = 7008;
 const HOST = "0.0.0.0";
@@ -189,6 +196,31 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
 			if (sessions.size === 0 && !persistentMode) setTimeout(shutdown, 500);
 			return;
 		}
+	}
+
+	// Token-authed API (accessible remotely)
+	if (url === "/api/spawn" && method === "POST") {
+		const urlToken = parsedUrl.searchParams.get("token");
+		if (urlToken !== TOKEN) {
+			res.writeHead(403, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ error: "Invalid or missing access token" }));
+			return;
+		}
+		if (sessions.size >= MAX_SESSIONS) {
+			res.writeHead(429, { "Content-Type": "application/json" });
+			res.end(JSON.stringify({ error: `Session limit reached (${MAX_SESSIONS})` }));
+			return;
+		}
+		const cliPath = join(__dirname, "cli.js");
+		const child = spawn(process.execPath, [cliPath], {
+			detached: true,
+			stdio: "ignore",
+			cwd: homedir(),
+		});
+		child.unref();
+		res.writeHead(200, { "Content-Type": "application/json" });
+		res.end(JSON.stringify({ ok: true }));
+		return;
 	}
 
 	// Web UI: token-authed
