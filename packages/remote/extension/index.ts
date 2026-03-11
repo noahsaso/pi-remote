@@ -91,6 +91,7 @@ export default function (pi: ExtensionAPI) {
 		if (!remoteUrl) return;
 
 		const tailscaleUrl = process.env.PI_REMOTE_TAILSCALE_URL;
+		const discoveryUrl = process.env.PI_REMOTE_DISCOVERY_URL;
 		const contentLines: string[] = [];
 		if (tailscaleUrl) {
 			contentLines.push("  \x1b[1;35mTailscale:\x1b[0m " + tailscaleUrl);
@@ -101,6 +102,9 @@ export default function (pi: ExtensionAPI) {
 		const tokenMatch = remoteUrl.match(/[?&]token=([^&]+)/);
 		if (tokenMatch) {
 			contentLines.push("  \x1b[1;33mToken:\x1b[0m " + tokenMatch[1]);
+		}
+		if (discoveryUrl) {
+			contentLines.push("  \x1b[1;32mAll sessions:\x1b[0m " + discoveryUrl);
 		}
 
 		const title = " Remote access ";
