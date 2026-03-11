@@ -249,7 +249,21 @@ const app = document.getElementById("app")!;
 // Top bar
 const topbar = document.createElement("div");
 topbar.id = "topbar";
-topbar.innerHTML = `<span class="title">π remote</span>`;
+
+// Back button to discovery/all-sessions page (go up from /pi/{id}/ to /pi/)
+const backBtn = document.createElement("button");
+backBtn.id = "back-btn";
+backBtn.textContent = "← All";
+backBtn.addEventListener("click", () => {
+	const token = new URLSearchParams(window.location.search).get("token") ?? "";
+	window.location.href = `../?token=${encodeURIComponent(token)}`;
+});
+topbar.appendChild(backBtn);
+
+const titleSpan = document.createElement("span");
+titleSpan.className = "title";
+titleSpan.textContent = "π remote";
+topbar.appendChild(titleSpan);
 
 const scrollBtn = document.createElement("button");
 scrollBtn.id = "scroll-btn";
