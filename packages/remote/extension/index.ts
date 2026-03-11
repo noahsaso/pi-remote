@@ -110,9 +110,13 @@ export default function (pi: ExtensionAPI) {
 				}
 			}) as typeof process.exit;
 		} else if (action === "end-remote") {
-			// Restart plain pi without the remote wrapper
+			// Restart plain pi without the remote wrapper — strip remote env vars
 			const piBin = resolvePiBin();
 			const piArgs = ["-e", extensionPath, ...(sessionFileForAction ? ["--session", sessionFileForAction] : [])];
+			const cleanEnv = { ...(process.env as Record<string, string>) };
+			delete cleanEnv.PI_REMOTE_URL;
+			delete cleanEnv.PI_REMOTE_TAILSCALE_URL;
+			delete cleanEnv.PI_REMOTE_DISCOVERY_URL;
 
 			const origExit = process.exit;
 			process.exit = ((_code?: number) => {
@@ -121,7 +125,7 @@ export default function (pi: ExtensionAPI) {
 					const result = spawnSync(piBin, piArgs, {
 						stdio: "inherit",
 						cwd: process.cwd(),
-						env: process.env as Record<string, string>,
+						env: cleanEnv,
 					});
 					origExit(result.status ?? 1);
 				} catch {
