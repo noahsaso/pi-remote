@@ -30,9 +30,19 @@ function resolvePiRemoteBin(): string {
 	throw new Error("Could not find pi-remote binary. Install @q.roy/pi-remote or ensure pi-remote is on PATH.");
 }
 
+function resolvePiBin(): string {
+	for (const cmd of ["which pi", "command -v pi"]) {
+		try {
+			const result = execSync(cmd, { encoding: "utf-8" }).trim();
+			if (result && !result.includes("\n")) return result;
+		} catch {}
+	}
+	throw new Error("Could not find pi binary on PATH.");
+}
+
 export default function (pi: ExtensionAPI) {
-	let pendingRemote = false;
-	let sessionFileForRemote: string | undefined;
+	let pendingAction: "remote" | "end-remote" | null = null;
+	let sessionFileForAction: string | undefined;
 
 	// ---------- /remote command ----------
 
@@ -46,42 +56,82 @@ export default function (pi: ExtensionAPI) {
 
 			await ctx.waitForIdle();
 
-			// Use --session with the current session file path to preserve the exact session
-			// This works for both new sessions (empty) and resumed sessions (with history)
-			sessionFileForRemote = ctx.sessionManager.getSessionFile();
-			pendingRemote = true;
+			sessionFileForAction = ctx.sessionManager.getSessionFile();
+			pendingAction = "remote";
 
 			ctx.ui.notify("Restarting pi in remote mode. Your session will be preserved.", "info");
 			ctx.shutdown();
 		},
 	});
 
-	pi.on("session_shutdown", async () => {
-		if (!pendingRemote) return;
-		pendingRemote = false;
+	// ---------- /end-remote command ----------
 
-		const bin = resolvePiRemoteBin();
-		const extensionPath = join(__dirname, "index.ts");
-		const piArgs = ["-e", extensionPath, ...(sessionFileForRemote ? ["--session", sessionFileForRemote] : [])];
-		const isJs = bin.endsWith(".js");
-		const command = isJs ? process.execPath : bin;
-		const args = isJs ? [bin, "--", ...piArgs] : ["--", ...piArgs];
-
-		const origExit = process.exit;
-		process.exit = ((_code?: number) => {
-			process.exit = origExit;
-
-			try {
-				const result = spawnSync(command, args, {
-					stdio: "inherit",
-					cwd: process.cwd(),
-					env: process.env as Record<string, string>,
-				});
-				origExit(result.status ?? 1);
-			} catch {
-				origExit(1);
+	pi.registerCommand("end-remote", {
+		description: "Stop remote access and restart pi normally",
+		handler: async (_args, ctx) => {
+			if (!process.env.PI_REMOTE_URL) {
+				ctx.ui.notify("Not currently in a remote session.", "error");
+				return;
 			}
-		}) as typeof process.exit;
+
+			await ctx.waitForIdle();
+
+			sessionFileForAction = ctx.sessionManager.getSessionFile();
+			pendingAction = "end-remote";
+
+			ctx.ui.notify("Stopping remote access. Your session will be preserved.", "info");
+			ctx.shutdown();
+		},
+	});
+
+	pi.on("session_shutdown", async () => {
+		if (!pendingAction) return;
+		const action = pendingAction;
+		pendingAction = null;
+
+		const extensionPath = join(__dirname, "index.ts");
+
+		if (action === "remote") {
+			const bin = resolvePiRemoteBin();
+			const piArgs = ["-e", extensionPath, ...(sessionFileForAction ? ["--session", sessionFileForAction] : [])];
+			const isJs = bin.endsWith(".js");
+			const command = isJs ? process.execPath : bin;
+			const args = isJs ? [bin, "--", ...piArgs] : ["--", ...piArgs];
+
+			const origExit = process.exit;
+			process.exit = ((_code?: number) => {
+				process.exit = origExit;
+				try {
+					const result = spawnSync(command, args, {
+						stdio: "inherit",
+						cwd: process.cwd(),
+						env: process.env as Record<string, string>,
+					});
+					origExit(result.status ?? 1);
+				} catch {
+					origExit(1);
+				}
+			}) as typeof process.exit;
+		} else if (action === "end-remote") {
+			// Restart plain pi without the remote wrapper
+			const piBin = resolvePiBin();
+			const piArgs = ["-e", extensionPath, ...(sessionFileForAction ? ["--session", sessionFileForAction] : [])];
+
+			const origExit = process.exit;
+			process.exit = ((_code?: number) => {
+				process.exit = origExit;
+				try {
+					const result = spawnSync(piBin, piArgs, {
+						stdio: "inherit",
+						cwd: process.cwd(),
+						env: process.env as Record<string, string>,
+					});
+					origExit(result.status ?? 1);
+				} catch {
+					origExit(1);
+				}
+			}) as typeof process.exit;
+		}
 	});
 
 	// ---------- Remote URL widget ----------
