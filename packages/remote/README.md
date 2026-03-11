@@ -190,6 +190,14 @@ When [Tailscale](https://tailscale.com) is installed and running, pi-remote auto
 5. Shows the Tailscale URL in the QR code modal (with LAN URL as fallback)
 6. Cleans up the specific serve route on exit (without affecting other `tailscale serve` routes)
 
+**Operator setup:** By default, Tailscale requires `sudo` to manage serve routes. To allow your user to run `tailscale serve` without root (required for pi-remote to set up routes automatically), run this once:
+
+```bash
+sudo tailscale set --operator=$USER
+```
+
+Without this, the `tailscale serve` command will fail with "Access denied" and pi-remote will fall back to the LAN URL only.
+
 **Graceful fallback:** If Tailscale is not installed, not running, or the serve command fails, pi-remote continues normally with just the LAN URL. No errors are shown.
 
 **Multiple sessions:** Each session gets a unique `/pi/{8-hex-chars}/` subpath, so multiple remote sessions can coexist on the same machine.
