@@ -111,6 +111,9 @@ PORT=8080 pi-remote
 
 # Run only the discovery service (persistent daemon mode)
 pi-remote --discovery
+
+# Check discovery service status (sessions, discovery page URL)
+pi-remote --status
 ```
 
 ---
