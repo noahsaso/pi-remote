@@ -103,13 +103,31 @@ h1{font-size:18px;color:#e0e0e0;margin-bottom:16px;text-align:center}
 .cwd{font-size:14px;color:#e0e0e0;font-family:ui-monospace,monospace;word-break:break-all}
 .meta{font-size:11px;color:#666;margin-top:6px}
 .empty{background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:24px 28px;text-align:center;font-size:12px;color:#888}
+.new-session{display:flex;align-items:center;justify-content:center;gap:8px;background:#1a1a1a;border:1px dashed #444;border-radius:10px;padding:16px 20px;margin-bottom:12px;cursor:pointer;color:#888;font-size:14px;transition:border-color 0.15s,color 0.15s}
+.new-session:hover{border-color:#666;color:#ccc}
+.new-session.spawning{pointer-events:none;opacity:0.5}
 </style>
 </head>
 <body>
 <div class="container">
 <h1>pi remote</h1>
 ${cardsHtml}
+<div class="new-session" id="spawn-btn" onclick="spawnSession()">+ New Session</div>
 </div>
+<script>
+function spawnSession(){
+  var btn=document.getElementById('spawn-btn');
+  btn.classList.add('spawning');
+  btn.textContent='Starting\u2026';
+  fetch('/api/spawn?token=${TOKEN}',{method:'POST'})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      if(d.ok){setTimeout(function(){location.reload()},2500)}
+      else{btn.textContent=d.error||'Error';btn.classList.remove('spawning')}
+    })
+    .catch(function(){btn.textContent='Failed';btn.classList.remove('spawning')});
+}
+</script>
 </body>
 </html>`;
 }
