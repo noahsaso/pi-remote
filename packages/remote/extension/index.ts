@@ -44,30 +44,30 @@ export default function (pi: ExtensionAPI) {
 	let pendingAction: "remote" | "end-remote" | null = null;
 	let sessionFileForAction: string | undefined;
 
-	// ---------- /remote command ----------
+	const isRemoteSession = !!process.env.PI_REMOTE_URL;
 
-	pi.registerCommand("remote", {
-		description: "Start remote access server (share session via browser)",
-		handler: async (_args, ctx) => {
-			if (!ctx.hasUI) {
-				ctx.ui.notify("Remote mode is only available in interactive mode.", "error");
-				return;
-			}
+	if (!isRemoteSession) {
+		// ---------- /remote command (only when NOT in remote mode) ----------
+		pi.registerCommand("remote", {
+			description: "Start remote access server (share session via browser)",
+			handler: async (_args, ctx) => {
+				if (!ctx.hasUI) {
+					ctx.ui.notify("Remote mode is only available in interactive mode.", "error");
+					return;
+				}
 
-			await ctx.waitForIdle();
+				await ctx.waitForIdle();
 
-			sessionFileForAction = ctx.sessionManager.getSessionFile();
-			pendingAction = "remote";
+				sessionFileForAction = ctx.sessionManager.getSessionFile();
+				pendingAction = "remote";
 
-			ctx.ui.notify("Restarting pi in remote mode. Your session will be preserved.", "info");
-			ctx.shutdown();
-		},
-	});
-
-	// ---------- /end-remote command (only when remote is active) ----------
-
-	if (process.env.PI_REMOTE_URL) {
-		pi.registerCommand("end-remote", {
+				ctx.ui.notify("Restarting pi in remote mode. Your session will be preserved.", "info");
+				ctx.shutdown();
+			},
+		});
+	} else {
+		// ---------- /remote:end command (only when in remote mode) ----------
+		pi.registerCommand("remote:end", {
 			description: "Stop remote access and restart pi normally",
 			handler: async (_args, ctx) => {
 				await ctx.waitForIdle();
