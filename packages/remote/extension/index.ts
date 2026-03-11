@@ -77,8 +77,20 @@ function buildBorderedWidget(title: string, contentLines: string[]): string[] {
 	return [topBorder, ...body, bottomBorder];
 }
 
-function buildRemoteQrMessage(primaryUrl: string): string {
-	return ["Scan to open on mobile:", "", ...renderQrLines(primaryUrl)].join("\n");
+function buildRemoteQrMessage(info: NonNullable<ReturnType<typeof getRemoteInfo>>, qrUrl: string): string {
+	const lines: string[] = [];
+	if (info.tailscaleUrl) {
+		lines.push(`  Tailscale:      ${info.tailscaleUrl}`);
+	}
+	lines.push(`  LAN:            ${info.remoteUrl}`);
+	if (info.token) {
+		lines.push(`  Token:          ${info.token}`);
+	}
+	if (info.discoveryUrl) {
+		lines.push(`  All sessions:   ${info.discoveryUrl}`);
+	}
+	lines.push("", "  Scan to open on mobile:", "", ...renderQrLines(qrUrl));
+	return lines.join("\n");
 }
 
 function getRemoteInfo() {
@@ -109,7 +121,10 @@ function buildRemoteWidgetLines(info: NonNullable<ReturnType<typeof getRemoteInf
 	if (info.discoveryUrl) {
 		contentLines.push("  \x1b[1;32mAll sessions:\x1b[0m " + info.discoveryUrl);
 	}
-	return buildBorderedWidget("Remote access", contentLines);
+	const title = " Remote access ";
+	const topBorder = `\x1b[90m╭${title}${"─".repeat(40)}╮\x1b[0m`;
+	const botBorder = `\x1b[90m╰${"─".repeat(40 + title.length)}╯\x1b[0m`;
+	return [topBorder, ...contentLines, botBorder];
 }
 
 export default function (pi: ExtensionAPI) {
@@ -121,7 +136,7 @@ export default function (pi: ExtensionAPI) {
 	pi.registerMessageRenderer(REMOTE_QR_MESSAGE_TYPE, (message, _options, theme) => {
 		const content = typeof message.content === "string" ? message.content : "";
 		const box = new Box(1, 1, (text) => theme.bg("customMessageBg", text));
-		box.addChild(new Text(`${theme.fg("accent", theme.bold("[REMOTE QR]"))}\n${content}`, 0, 0));
+		box.addChild(new Text(`${theme.fg("accent", theme.bold("[Remote access]"))}\n${content}`, 0, 0));
 		return box;
 	});
 
@@ -267,7 +282,7 @@ export default function (pi: ExtensionAPI) {
 
 		pi.sendMessage({
 			customType: REMOTE_QR_MESSAGE_TYPE,
-			content: buildRemoteQrMessage(qrUrl),
+			content: buildRemoteQrMessage(info, qrUrl),
 			display: true,
 			details: {
 				primaryUrl: info.primaryUrl,
