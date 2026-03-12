@@ -108,6 +108,12 @@ pi-remote -- --continue
 
 # Custom port (default: 7009)
 PORT=8080 pi-remote
+
+# Run only the discovery service (persistent daemon mode)
+pi-remote --daemon
+
+# Check discovery service status (sessions, discovery page URL)
+pi-remote --status
 ```
 
 ---
@@ -204,10 +210,59 @@ When multiple remote sessions run on the same machine, the discovery service pro
 - **Web UI**: Card layout at `/pi/` showing each session's working directory and start time, with clickable links
 - **Tailscale route**: Served at `https://your-host.tailnet.ts.net/pi/?token=...`
 - **Auto-shutdown**: When the last session deregisters, the discovery service cleans up its Tailscale route and exits
+- **Spawn button**: The discovery page includes a "+ New Session" button to start new sessions remotely (max 10 concurrent)
 
 **URL structure on tailnet:**
 - `https://host.ts.net/pi/?token=...` → discovery service (all sessions)
 - `https://host.ts.net/pi/abc12345/?token=...` → individual session
+
+### Persistent Discovery Daemon
+
+By default, the discovery service auto-exits when the last session deregisters. To keep it running permanently (so the "+ New Session" button on the discovery page is always available), use the `--daemon` flag:
+
+```bash
+pi-remote --daemon
+```
+
+This runs only the discovery service in persistent mode — no PTY session is spawned. The discovery page at `/pi/` stays available and includes a "+ New Session" button that spawns new headless pi-remote sessions.
+
+#### systemd Setup
+
+To run the discovery service as a system service on Linux:
+
+1. Create `/etc/systemd/system/pi-remote-daemon.service`:
+
+```ini
+[Unit]
+Description=pi-remote daemon
+After=network.target tailscaled.service
+
+[Service]
+ExecStart=/usr/local/bin/pi-remote --daemon
+Restart=on-failure
+RestartSec=5
+User=YOUR_USERNAME
+Environment=HOME=/home/YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME
+
+[Install]
+WantedBy=multi-user.target
+```
+
+2. Enable and start:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable pi-remote-daemon
+sudo systemctl start pi-remote-daemon
+```
+
+3. Check status:
+
+```bash
+sudo systemctl status pi-remote-daemon
+journalctl -u pi-remote-daemon -f
+```
 
 ## Security
 
