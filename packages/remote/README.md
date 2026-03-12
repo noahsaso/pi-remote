@@ -230,11 +230,11 @@ This runs only the discovery service in persistent mode — no PTY session is sp
 
 To run the discovery service as a system service on Linux:
 
-1. Create `/etc/systemd/system/pi-remote-discovery.service`:
+1. Create `/etc/systemd/system/pi-remote-daemon.service`:
 
 ```ini
 [Unit]
-Description=pi-remote discovery service
+Description=pi-remote daemon
 After=network.target tailscaled.service
 
 [Service]
@@ -253,15 +253,15 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable pi-remote-discovery
-sudo systemctl start pi-remote-discovery
+sudo systemctl enable pi-remote-daemon
+sudo systemctl start pi-remote-daemon
 ```
 
 3. Check status:
 
 ```bash
-sudo systemctl status pi-remote-discovery
-journalctl -u pi-remote-discovery -f
+sudo systemctl status pi-remote-daemon
+journalctl -u pi-remote-daemon -f
 ```
 
 ## Security
