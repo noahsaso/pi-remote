@@ -280,6 +280,13 @@ export function startDiscoveryService(persistent = false): Promise<void> {
 				}
 			}
 
+			// Print discovery page URL
+			const pageUrl = tailscaleUrl
+				? `${tailscaleUrl}?token=${TOKEN}`
+				: `http://127.0.0.1:${DISCOVERY_PORT}/?token=${TOKEN}`;
+			process.stderr.write(`\x1b[1;32m[discovery]\x1b[0m listening on port ${DISCOVERY_PORT}\n`);
+			process.stderr.write(`\x1b[1;32m[discovery]\x1b[0m ${pageUrl}\n`);
+
 			resolve();
 		});
 
