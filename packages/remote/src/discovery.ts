@@ -102,7 +102,7 @@ h1{font-size:18px;color:#e0e0e0;margin-bottom:16px;text-align:center}
 .card:hover{border-color:#555}
 .cwd{font-size:14px;color:#e0e0e0;font-family:ui-monospace,monospace;word-break:break-all}
 .meta{font-size:11px;color:#666;margin-top:6px}
-.empty{background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:24px 28px;text-align:center;font-size:12px;color:#888}
+.empty{background:#1a1a1a;border:1px solid #333;border-radius:10px;padding:24px 28px;text-align:center;font-size:12px;color:#888;margin-bottom:12px}
 .new-session{display:flex;align-items:center;justify-content:center;gap:8px;background:#1a1a1a;border:1px dashed #444;border-radius:10px;padding:16px 20px;margin-bottom:12px;cursor:pointer;color:#888;font-size:14px;transition:border-color 0.15s,color 0.15s}
 .new-session:hover{border-color:#666;color:#ccc}
 .new-session.spawning{pointer-events:none;opacity:0.5}
