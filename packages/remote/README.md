@@ -110,7 +110,7 @@ pi-remote -- --continue
 PORT=8080 pi-remote
 
 # Run only the discovery service (persistent daemon mode)
-pi-remote --discovery
+pi-remote --daemon
 
 # Check discovery service status (sessions, discovery page URL)
 pi-remote --status
@@ -218,10 +218,10 @@ When multiple remote sessions run on the same machine, the discovery service pro
 
 ### Persistent Discovery Daemon
 
-By default, the discovery service auto-exits when the last session deregisters. To keep it running permanently (so the "+ New Session" button on the discovery page is always available), use the `--discovery` flag:
+By default, the discovery service auto-exits when the last session deregisters. To keep it running permanently (so the "+ New Session" button on the discovery page is always available), use the `--daemon` flag:
 
 ```bash
-pi-remote --discovery
+pi-remote --daemon
 ```
 
 This runs only the discovery service in persistent mode — no PTY session is spawned. The discovery page at `/pi/` stays available and includes a "+ New Session" button that spawns new headless pi-remote sessions.
@@ -238,7 +238,7 @@ Description=pi-remote discovery service
 After=network.target tailscaled.service
 
 [Service]
-ExecStart=/usr/local/bin/pi-remote --discovery
+ExecStart=/usr/local/bin/pi-remote --daemon
 Restart=on-failure
 RestartSec=5
 User=YOUR_USERNAME

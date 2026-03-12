@@ -6,6 +6,6 @@
 import { startDiscoveryService } from "./discovery.js";
 
 startDiscoveryService().catch((err) => {
-	process.stderr.write(`[discovery] failed to start: ${err}\n`);
+	process.stderr.write(`[daemon] failed to start: ${err}\n`);
 	process.exit(1);
 });

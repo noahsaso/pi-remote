@@ -5,7 +5,7 @@
  * Usage:
  *   pi-remote [-- <pi-args...>]
  *   pi-remote --pi-path /custom/pi [-- <pi-args...>]
- *   pi-remote --discovery          # run only the persistent discovery service
+ *   pi-remote --daemon             # run only the persistent discovery service
  *   pi-remote --status             # check discovery service status
  */
 
@@ -88,10 +88,10 @@ if (statusIdx !== -1) {
 	process.exit(0);
 }
 
-// Parse --discovery (run persistent discovery service only)
-const discoveryIdx = argv.indexOf("--discovery");
-if (discoveryIdx !== -1) {
-	argv.splice(discoveryIdx, 1);
+// Parse --daemon (run persistent discovery service only)
+const daemonIdx = argv.indexOf("--daemon");
+if (daemonIdx !== -1) {
+	argv.splice(daemonIdx, 1);
 	const { startDiscoveryService } = await import("./discovery.js");
 	await startDiscoveryService(true);
 	// Keep the process alive — startDiscoveryService resolves after the server starts listening

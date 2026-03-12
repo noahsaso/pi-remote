@@ -57,13 +57,13 @@ async function ensureDiscoveryService(): Promise<string> {
 	// Try to reach existing discovery service
 	let token = await getDiscoveryToken();
 	if (token) {
-		process.stderr.write("\x1b[1;32m[discovery]\x1b[0m connected to existing service\n");
+		process.stderr.write("\x1b[1;32m[daemon]\x1b[0m connected to existing service\n");
 		return token;
 	}
 
 	// Spawn discovery service as detached process
 	const entryPoint = join(__dirname, "discovery-main.js");
-	process.stderr.write(`\x1b[1;32m[discovery]\x1b[0m spawning: ${entryPoint}\n`);
+	process.stderr.write(`\x1b[1;32m[daemon]\x1b[0m spawning: ${entryPoint}\n`);
 	const child = spawn(process.execPath, [entryPoint], {
 		detached: true,
 		stdio: "ignore",
@@ -75,7 +75,7 @@ async function ensureDiscoveryService(): Promise<string> {
 		await new Promise((r) => setTimeout(r, 100));
 		token = await getDiscoveryToken();
 		if (token) {
-			process.stderr.write("\x1b[1;32m[discovery]\x1b[0m service started\n");
+			process.stderr.write("\x1b[1;32m[daemon]\x1b[0m service started\n");
 			return token;
 		}
 	}
