@@ -342,8 +342,8 @@ const tv = new TerminalView(termWrap);
 // Wire session exit handler — redirect to discovery page
 tv.onExit(() => {
 	const token = new URLSearchParams(window.location.search).get("token") ?? "";
-	// Navigate up from /pi/{id}/ to /pi/?token=...
-	window.location.href = `../?token=${encodeURIComponent(token)}`;
+	// Navigate up from /pi/{id}/ to /pi/?token=... with cache bust to force refresh
+	window.location.href = `../?token=${encodeURIComponent(token)}&t=${Date.now()}`;
 });
 
 // Wire auth error handler
